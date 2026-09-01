@@ -1,5 +1,5 @@
 // src/pages/News.jsx - DEDICATED NEWS PAGE WITH IMAGE AND VIDEO UPLOAD SUPPORT
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getNewsByHall, getPersistedHalls } from '../data/mockData';
 
 export default function News({ user }) {
@@ -350,27 +350,7 @@ export default function News({ user }) {
             )}
 
             {/* Buttons */}
-            <div className="flex gap-4 mt-4">
-              <button 
-                type="submit" 
-                className="flex-1 py-3 bg-deep-charcoal text-white rounded-lg font-semibold hover:bg-black transition-all shadow-sm"
-              >
-                Post Announcement
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowModal(false);
-                  setTitle('');
-                  setContent('');
-                  setMediaUri('');
-                  setMediaType('');
-                }}
-                className="flex-1 py-3 border border-outline text-secondary rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+            
           </form>
         </div>
       )}

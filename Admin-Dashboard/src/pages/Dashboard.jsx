@@ -13,6 +13,11 @@ export default   function Dashboard({ user }) {
 const [Report,SetReport] = useState(0);
 const [Raised,SetRaised] = useState(0);
 const [images, setImages] = useState([]);
+const [User, setUser] = useState(null);
+const [loading, setLoading] = useState(true);
+const [HallAdmin, setHallAdmin] = useState('');
+const [Email, setEmail] = useState('');
+const [Hall, setHall] = useState('');
 //const [Counter,SetCounter] = useState(0)
 const [Data,SetData] = useState();
 //const [BenData,SetBenData] = useState();
@@ -22,8 +27,64 @@ const [recentReports, setRecentReports] = useState([]);
 const [loadingRequests, setLoadingRequests] = useState(false);
 const [fixingRequestId, setFixingRequestId] = useState(null);
 //const isFixing = Number(Data?.request?.count || 0) > 0;
+ //console.log("HallAdmin",HallAdmin);
+ const getAISummary = async () => {
+  const { data, error } = await supabase.functions.invoke(
+    "AI-SUMMARY"
+  );
 
+  if (error) {
+    console.error("AI analysis error:", error);
+    return;
+  }
+
+  console.log("AI analysis:", data);
+  
+  return data;
+};
+useEffect(() => {
+  const getSession = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.user) {
+      setUser(session.user);
+    } else {
+      setUser(null);
+    }
+
+    setLoading(false);
+      
+
+  };
+
+  getSession();
+
+ getAISummary()
+}, []);
+ function getServiceData(request, HallAdmin) {
+  if (!request) return null;
+
+  switch (HallAdmin) {
+    case "Carpentry":
+      return request.Carpentry?.[0] || null;
+
+    case "Electrical":
+      return request.Electrical?.[0] || null;
+
+    case "Plumbing":
+      return request.Plumbing?.[0] || null;
+
+    case "Masonry":
+      return request.Masonry?.[0] || null;
+
+    default:
+      return null;
+  }
+}
 const getUserServiceData = async () => {
+ 
   try {
     const {
       data: { user },
@@ -67,7 +128,7 @@ const getUserServiceData = async () => {
         .eq("user_id", userId),
 
       supabase
-        .from("masonry")
+        .from("Masonry")
         .select("*")
         .eq("user_id", userId),
     ]);
@@ -100,6 +161,33 @@ const getUserServiceData = async () => {
     return null;
   }
 };
+const handleAssigned = async (request) => {
+ const { data: { user } } = await supabase.auth.getUser();
+ const meat = handleAssign(user?.id)
+ // Immediately change this specific button to yellow
+    setFixingRequestId(request?.id);
+
+ console.log(meat)
+ console.log(user?.id)
+      const sdata = await getUserServiceData(); 
+  console.log("User service data:", sdata);
+ // SetBenData(sdata)
+ 
+  try{
+ const { data, error } = await supabase.functions.invoke('email-handler', {
+  body: { name: Email?.user_metadata.full_name,email:Email?.email },
+})
+console.log(data)
+console.log(error)
+  }
+  catch(error){
+console.log(error)
+  }
+ 
+
+
+};
+
 useEffect(()=>{
 
 const loadRequests = async () => {
@@ -137,6 +225,7 @@ const loadRequests = async () => {
         request: {...}
       }
     */
+  
 
     const { data, error } = await supabase.functions.invoke(
       "assign-tech",
@@ -172,7 +261,7 @@ const loadRequests = async () => {
   }
 },[user?.id ,])
 
-function RequestTable({ requests, loadingRequests, isSuperAdmin, images = []  }) {
+function RequestTable({ requests,HallAdmin, loadingRequests, isSuperAdmin, images = []  }) {
   return (
     <div className="premium-card overflow-hidden">
 
@@ -205,6 +294,9 @@ function RequestTable({ requests, loadingRequests, isSuperAdmin, images = []  })
               <th className="text-center">
                 Request
               </th>
+               <th className="text-center">
+                
+              </th>
             </tr>
           </thead>
 
@@ -223,7 +315,7 @@ function RequestTable({ requests, loadingRequests, isSuperAdmin, images = []  })
 
             ) : requests.length > 0 ? (
 
-              requests.map((request) => (
+              HallAdmin.map((request) => (
 
                 <tr key={request.id}>
 
@@ -266,7 +358,7 @@ function RequestTable({ requests, loadingRequests, isSuperAdmin, images = []  })
                   {/* Floor */}
                   <td>
                     <span className="font-semibold text-sm text-deep-charcoal">
-                      {request.floor || "N/A"}
+                      {request.Plumbing?.[0].service_type || "N/A"}
                     </span>
                   </td>
 
@@ -274,7 +366,8 @@ function RequestTable({ requests, loadingRequests, isSuperAdmin, images = []  })
                   {/* Room */}
                   <td>
                     <span className="font-semibold text-sm text-deep-charcoal">
-                      {request.room || "N/A"}
+                      {request.Plumbing?.[0].selected_issues
+ || "N/A"}
                     </span>
                   </td>
 
@@ -345,6 +438,24 @@ function RequestTable({ requests, loadingRequests, isSuperAdmin, images = []  })
 
                   </td>
 
+ <td className="text-center">
+
+                    <button
+                     // onClick={}
+                      style={{
+                        backgroundColor: "black",
+                        color: "white",
+                        border: "none",
+                        padding: "10px 20px",
+                        borderRadius: "8px",
+                        fontSize: "15px",
+                        fontWeight: "600",
+                        cursor: "pointer"
+                      }}
+                    >Resolved
+                    </button>
+
+                  </td>
                 </tr>
 
               ))
@@ -375,34 +486,55 @@ function RequestTable({ requests, loadingRequests, isSuperAdmin, images = []  })
 }
 
 
- const getAllData = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-
-console.log("Current user:", user);
-  //console.log("Supabase:", supabase);
+const getAllData = async () => {
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*");
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
 
-    if (error) {
-      throw error;
+    if (userError) {
+      console.error("Auth error:", userError);
+      return null;
     }
 
+    if (!user) {
+      console.log("No authenticated user");
+      return null;
+    }
+
+    console.log("Current user:", user);
+setEmail(user)
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`
+        *,
+        Electrical (*),
+        Plumbing (*),
+        Carpentry (*),
+        Masonry (*)
+      `);
+
+    if (error) {
+      console.error("Error fetching all related data:", error);
+      return null;
+    }
+
+    console.log("ALL RELATED DATA:", data);
+ setHallAdmin(data)
     return data;
 
   } catch (error) {
-    console.log("Error fetching data:", error.message);
+    console.error("Unexpected error:", error);
     return null;
   }
-
 };
 
 // Count total rows in a table
- const countRows = async () => {
+const countRows = async (tableName) => {
   try {
     const { count, error } = await supabase
-      .from("profiles")
+      .from(tableName)
       .select("*", { count: "exact", head: true });
 
     if (error) {
@@ -412,10 +544,10 @@ console.log("Current user:", user);
     return count;
 
   } catch (error) {
-    console.log("Error counting rows:", error.message);
+    console.log(`Error counting ${tableName} rows:`, error.message);
     return null;
   }
- }
+};
  
  
 useEffect(()=>{
@@ -443,37 +575,78 @@ if (error) {
   console.error(error);
   return;
 }
-
-const images = data
-  .filter(file => file.name !== '.emptyFolderPlaceholder')
-  .map(file => {
-    const { data: urlData } = supabase.storage
+const imageFiles = data.filter(
+  file => file.name !== '.emptyFolderPlaceholder'
+);
+const images = await Promise.all(
+  imageFiles.map(async (file) => {
+    const { data: urlData, error: urlError } = await supabase.storage
       .from('images')
-      .getPublicUrl(file.name); 
+      .createSignedUrl(file.name, 3600); // URL valid for 1 hour
+
+    if (urlError) {
+      console.error(`Error creating URL for ${file.name}:`, urlError);
+      return null;
+    }
 
     return {
       name: file.name,
-      url: urlData.publicUrl,
+      url: urlData.signedUrl,
     };
-  });
+  })
+);
 
-console.log('Images:', images);
-setImages(images); 
+const validImages = images.filter(Boolean);
+
+console.log("Images:", validImages);
+setImages(validImages);
+const buckets = await supabase.storage
+
+console.log("BUCKETS:", buckets);
 
 } catch (error) {
   console.log(error)
 }
-   
+    const [electrical, plumbing, carpentry, masonry] = await Promise.all([
+    countRows("Electrical"),
+    countRows("Plumbing"),
+    countRows("Carpentry"),
+    countRows("Masonry"),
+  ]);
+
+  const total =
+    (electrical || 0) +
+    (plumbing || 0) +
+    (carpentry || 0) +
+    (masonry || 0);
 
 
-  const total = await countRows();
+
+
+ // const total = await countRows();
 SetReport(total)
 SetRaised(total)
   console.log("Total rows:", total);
-
+  return total;
 };
 fetchData();
-},[])  
+
+
+},[])
+
+if (HallAdmin === "University Hall(Katanga)") {
+  setHall("University Hall");
+} else if (HallAdmin === "Republic Hall") {
+  setHall("Republic Hall");
+} else if (HallAdmin === "Africa Hall") {
+  setHall("Africa Hall");
+} else if (HallAdmin === "Queens Hall") {
+  setHall("Queens Hall");
+} else if (HallAdmin=== "Independence Hall") {
+ setHall("Independence Hall");
+} else if (HallAdmin === "Unity Hall") {
+ setHall("Unity Hall");
+}
 const handleAssign = async (requestId) => {
   
   try {
@@ -502,18 +675,7 @@ const handleAssign = async (requestId) => {
 
 
  console.log(Data)
-const handleAssigned = async (request) => {
- const { data: { user } } = await supabase.auth.getUser();
- const meat = handleAssign(user?.id)
- // Immediately change this specific button to yellow
-    setFixingRequestId(request?.id);
 
- console.log(meat)
- console.log(user?.id)
-      const sdata = await getUserServiceData(); 
-  console.log("User service data:", sdata);
- // SetBenData(sdata)
-};
 useEffect(()=>{
 if(Data?.request?.count !==0){
 SetReport(0)
@@ -602,7 +764,7 @@ SetReport(0)
 
     loadData();
   };
-
+//console.log("requests",requests)
   const getHallDisplay = () => {
     if (isSuperAdmin) {
       if (selectedHall) {
@@ -729,185 +891,9 @@ SetReport(0)
   loadingRequests={loadingRequests}
   isSuperAdmin={isSuperAdmin}
    images={images}
+    HallAdmin={HallAdmin}
 />
-      <div className="premium-card overflow-hidden">
-        <div className="px-8 py-6 border-b border-border-light bg-surface-low/50 flex justify-between items-center">
-          <h4 className="font-title-md text-title-md font-bold uppercase tracking-widest text-deep-charcoal">
-            {isSuperAdmin ? 'Global Maintenance Log' : 'Recent Hall Reports'}
-        
-          </h4>
-        </div>
-        
-        <div className="overflow-x-auto thin-scrollbar">
-          <table className="premium-table">
-            <thead>
-              <tr>
-                <th>Student Name</th>
-                {isSuperAdmin && <th>Residence Hall</th>}
-                <th>Location</th>
-                <th>Fault Category</th>
-                <th>Specific Faults</th>
-                <th>Assign Technician</th>
-                <th>Evidence</th>
-                <th className="text-center">Status</th>
-                  <th className="text-center">Request</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentReports.length > 0 ? (
-                recentReports.map((report) => {
-                  // Filter technicians by the hall assigned to the report
-                  const availableTechs = technicians.filter(
-                    t => String(t.hallId) === String(report.hallId)
-                  );
-
-                  return (
-                    <tr key={report.id}>
-                      {/* Student Name */}
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-deep-charcoal text-white flex items-center justify-center font-bold text-[10px] rounded-lg">
-                            {getInitials(report.studentName)}
-                          </div>
-                          <span className="font-bold text-[13px] text-deep-charcoal">
-                            {report.studentName}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Residence Hall (Super Admin only) */}
-                      {isSuperAdmin && (
-                        <td>
-                          <span className="font-semibold text-xs text-secondary">
-                            {report.hallName}
-                          </span>
-                        </td>
-                      )}
-
-                      {/* Location */}
-                      <td className="text-secondary text-sm font-semibold">
-                        {report.location}
-                      </td>
-
-                      {/* Fault Category */}
-                      <td>
-                        <span className="monochromatic-badge inline-block uppercase tracking-wider text-[10px] scheduled">
-                          {report.category || 'General'}
-                        </span>
-                      </td>
-
-                      {/* Specific Faults */}
-                      <td>
-                        <div className="font-bold text-deep-charcoal text-[13px]">{report.issue}</div>
-                        <div className="text-[11px] text-secondary italic mt-0.5 max-w-[200px] truncate" title={report.description}>
-                          {report.description || 'No additional details.'}
-                        </div>
-                      </td>
-
-                      {/* Assign Technician Dropdown */}
-                      <td>
-                        <div className="relative">
-                          <select
-                            value={report.assignedTo || ''}
-                            onChange={(e) => handleAssignTechnician(report.id, e.target.value)}
-                            className={`premium-select text-xs py-1.5 pl-3 pr-8 min-w-[170px] appearance-none ${
-                              report.assignedTo ? 'bg-status-success/5 border-status-success/30 font-bold text-status-success-text' : ''
-                            }`}
-                          >
-                            <option value="">Unassigned</option>
-                            {availableTechs.map(t => (
-                              <option key={t.id} value={t.id}>
-                                {t.name} ({t.specialty})
-                              </option>
-                            ))}
-                          </select>
-                          <span className={`material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-secondary text-[16px] ${
-                            report.assignedTo ? 'text-status-success-text' : ''
-                          }`}>
-                            expand_more
-                          </span>
-                        </div>
-                        {report.assignedTo && (
-                          <div className="text-[10px] text-status-success-text font-bold mt-1 flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                            Assigned to {report.assignedName || 'Technician'}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Photo/Video Evidence Button */}
-                      <td>
-                        {report.imageUri || (report.photos && report.photos.length > 0) || report.video ? (
-                          <button
-                            onClick={() => {
-                              const mediaUri = report.imageUri || (report.photos && report.photos[0]) || report.video;
-                              setSelectedImage(mediaUri);
-                              setShowImageModal(true);
-                            }}
-                            className="outline-btn text-[11px] py-1.5 px-3 flex items-center gap-1 hover:bg-surface-high transition-all"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">
-                              {isVideo(report.imageUri || (report.photos && report.photos[0]) || report.video) ? 'movie' : 'image'}
-                            </span>
-                            View Media
-                          </button>
-                        ) : (
-                          <span className="text-[11px] text-secondary italic">No media</span>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="text-center">
-                        <span className={`monochromatic-badge ${
-                          report.status === 'resolved' 
-                            ? 'success' 
-                            : report.status === 'in-progress'
-                            ? 'in-progress'
-                            : report.status === 'scheduled'
-                            ? 'scheduled'
-                            : 'pending'
-                        }`}>
-                          {report.status.replace('-', ' ')}
-                        </span>
-                        {report.assignedTo && (
-                          <div className="text-[10px] text-secondary font-semibold mt-1">
-                            {report.assignedName}
-                          </div>
-                        )}
-                      </td>
-                        {/* Status */}
-                      <td className="text-center">
-                        <span className={`monochromatic-badge `}>
-                          
-                        </span>
-                          <div className="text-[10px] text-secondary font-semibold mt-1">
-                           <button onClick={handleAssigned}   style={{
-        backgroundColor: fixingRequestId ? "#facc15" : "#16a34a",
-        color: "white",
-        border: "none",
-        padding: "10px 20px",
-        borderRadius: "8px",
-        fontSize: "15px",
-        fontWeight: "600",
-        cursor: "pointer",
-      }}>{fixingRequestId? "Fixing" : "Accept"}</button>
-                          </div>
-                        
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={isSuperAdmin ? 8 : 7} className="text-center py-12 text-secondary font-medium">
-                    No reports registered under this scope.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      
 
       {/* ===== EVIDENCE MEDIA PREVIEW MODAL ===== */}
       {showImageModal && selectedImage && (
