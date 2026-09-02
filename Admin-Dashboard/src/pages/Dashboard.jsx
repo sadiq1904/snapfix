@@ -29,18 +29,9 @@ const [fixingRequestId, setFixingRequestId] = useState(null);
 //const isFixing = Number(Data?.request?.count || 0) > 0;
  //console.log("HallAdmin",HallAdmin);
  const getAISummary = async () => {
-  const { data, error } = await supabase.functions.invoke(
-    "AI-SUMMARY"
-  );
-
-  if (error) {
-    console.error("AI analysis error:", error);
-    return;
-  }
-
-  console.log("AI analysis:", data);
   
-  return data;
+  
+  
 };
 useEffect(() => {
   const getSession = async () => {
@@ -208,7 +199,13 @@ const loadRequests = async () => {
       console.log("No authenticated user");
       return;
     }
+const {
+  data: { session },
+  error:Error
+} = await supabase.auth.getSession();
 
+console.log("SESSION:", session);
+console.log("ERROR:", Error);
     /*
       IMPORTANT:
 
@@ -285,11 +282,11 @@ function RequestTable({ requests,HallAdmin, loadingRequests, isSuperAdmin, image
 
               <th>Location</th>
 
-              <th>Floor</th>
+              <th>service type</th>
 
-              <th>Room</th>
+              <th>Selected issues</th>
 
-              <th>Request Status</th>
+              <th>status</th>
                 <th>images</th>
               <th className="text-center">
                 Request
@@ -505,6 +502,13 @@ const getAllData = async () => {
 
     console.log("Current user:", user);
 setEmail(user)
+const {
+  data: { session },
+  error:Error
+} = await supabase.auth.getSession();
+
+console.log("SESSION:", session);
+console.log("ERROR:", Error);
     const { data, error } = await supabase
       .from("profiles")
       .select(`
@@ -533,6 +537,13 @@ setEmail(user)
 // Count total rows in a table
 const countRows = async (tableName) => {
   try {
+    const {
+  data: { session },
+  error:Error
+} = await supabase.auth.getSession();
+
+console.log("SESSION:", session);
+console.log("ERROR:", Error);
     const { count, error } = await supabase
       .from(tableName)
       .select("*", { count: "exact", head: true });
@@ -566,6 +577,13 @@ try {
       console.error("Error getting user:", userError);
       return null;
     }
+    const {
+  data: { session },
+  error:Error
+} = await supabase.auth.getSession();
+
+console.log("SESSION:", session);
+console.log("ERROR:", Error);
  //const userId = user.id;
  const { data, error } = await supabase.storage
   .from('images')
